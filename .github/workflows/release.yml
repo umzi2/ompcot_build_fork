@@ -101,3 +101,4 @@ jobs:
           cp extensions/dist/embedded-server.mjs "${STAGE}/extensions/embedded-server.mjs"
           tar -czf "${STAGE}.tar.gz" "${STAGE}"
           gh release create "${GITHUB_REF_NAME}" --generate-notes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release upload "${GITHUB_REF_NAME}" "${STAGE}.tar.gz" --clobber --repo "$GITHUB_REPOSITORY"
