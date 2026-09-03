@@ -130,6 +130,23 @@ jobs:
           # `https://github.com/.../releases/latest/download/latest.json`.
           updaterJsonPreferNsis: true
 
+      # Standalone (unbundled) binary for Arch-style distros where a
+      # plain executable is enough — no deb/rpm packaging needed.
+      - name: Upload standalone Linux binary
+        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BIN="src-tauri/target/release/ompcot"
+          test -x "$BIN"
+          case "${RUNNER_ARCH}" in
+            X64) SUFFIX="x64" ;;
+            ARM64) SUFFIX="arm64" ;;
+            *) echo "Unexpected RUNNER_ARCH: ${RUNNER_ARCH}"; exit 1 ;;
+          esac
+          cp "$BIN" "ompcot-linux-${SUFFIX}"
+          gh release upload "${GITHUB_REF_NAME}" "ompcot-linux-${SUFFIX}" --clobber --repo "$GITHUB_REPOSITORY"
+
       - name: Build Tauri app and publish assets
         if: runner.os != 'Linux'
         uses: tauri-apps/tauri-action@v0
