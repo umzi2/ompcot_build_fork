@@ -82,7 +82,7 @@ jobs:
       - name: Build binary
         run: bunx tauri build --no-bundle
 
-      - name: Upload binary to release
+      - name: Package and upload portable bundle
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,6 +94,11 @@ jobs:
             ARM64) SUFFIX="arm64" ;;
             *) echo "Unexpected RUNNER_ARCH: ${RUNNER_ARCH}"; exit 1 ;;
           esac
-          cp "$BIN" "ompcot-linux-${SUFFIX}"
+          STAGE="ompcot-linux-${SUFFIX}"
+          mkdir -p "${STAGE}/extensions"
+          cp "$BIN" "${STAGE}/ompcot"
+          cp -r public "${STAGE}/public"
+          cp dist/embedded-server.mjs "${STAGE}/extensions/embedded-server.mjs"
+          tar -czf "${STAGE}.tar.gz" "${STAGE}"
           gh release create "${GITHUB_REF_NAME}" --generate-notes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
-          gh release upload "${GITHUB_REF_NAME}" "ompcot-linux-${SUFFIX}" --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload "${GITHUB_REF_NAME}" "${STAGE}.tar.gz" --clobber --repo "$GITHUB_REPOSITORY"

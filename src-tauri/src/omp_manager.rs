@@ -46,18 +46,16 @@ pub fn locked_omp_version() -> &'static str {
             .map(PathBuf::from)
             .or_else(|| which::which(bin_name).ok());
         match bin {
-            Some(bin) => {
-                match Command::new(&bin).arg("--version").output() {
-                    Ok(output) => {
-                        let stdout = String::from_utf8_lossy(&output.stdout);
-                        stdout.trim().to_string()
-                    }
-                    Err(e) => {
-                        log::warn!("[ompcot] failed to run omp --version: {}", e);
-                        "unknown".to_string()
-                    }
+            Some(bin) => match Command::new(&bin).arg("--version").output() {
+                Ok(output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    stdout.trim().to_string()
                 }
-            }
+                Err(e) => {
+                    log::warn!("[ompcot] failed to run omp --version: {}", e);
+                    "unknown".to_string()
+                }
+            },
             None => "unknown (omp not found on PATH)".to_string(),
         }
     })
@@ -350,11 +348,10 @@ impl OmpManager {
             return Ok(path);
         }
 
-        Err(format!(
-            "Could not find omp binary on PATH.\n\n\
+        Err("Could not find omp binary on PATH.\n\n\
              Install omp via:\n  brew install omp\n\n\
              Or set OMP_BIN to the path of your omp binary."
-        ))
+            .to_string())
     }
     /// Locate the embedded-server extension shipped with this build.
     ///
@@ -393,6 +390,22 @@ impl OmpManager {
         // Prefer the live source in debug builds before any target/debug bundle:
         // that bundle can be stale after frontend/extension edits and causes the
         // dev app to serve old API behavior until a full resource copy happens.
+        // Portable/standalone binary (e.g. bare `ompcot-linux-x64` from a
+        // release zip run outside an install layout): resources sit next to
+        // the executable, not under the system resource dir.
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                candidates.push((
+                    dir.join("extensions").join("embedded-server.mjs"),
+                    "bundled:exe-dir",
+                ));
+                candidates.push((
+                    dir.join("extensions").join("embedded-server.ts"),
+                    "dev:exe-dir",
+                ));
+            }
+        }
+
         if cfg!(debug_assertions) {
             candidates.push((
                 PathBuf::from(env!("CARGO_MANIFEST_DIR"))

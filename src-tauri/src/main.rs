@@ -10,7 +10,7 @@ use omp_manager::{
 use serde_json::Value;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tauri::image::Image;
@@ -250,7 +250,12 @@ fn list_installed_apps_core() -> Vec<AppTarget> {
     let candidates: [(&str, &str, &[&str], &str); 6] = [
         ("vscode", "VS Code", &["Visual Studio Code", "Code"], "code"),
         ("cursor", "Cursor", &["Cursor"], "cursor"),
-        ("webstorm", "WebStorm", &["WebStorm", "WebStorm EAP"], "webstorm"),
+        (
+            "webstorm",
+            "WebStorm",
+            &["WebStorm", "WebStorm EAP"],
+            "webstorm",
+        ),
         ("zed", "Zed", &["Zed"], "zed"),
         ("terminal", "Terminal", &["Terminal", "iTerm", "Warp"], ""),
         ("ghostty", "Ghostty", &["Ghostty"], ""),
@@ -524,12 +529,28 @@ fn resolve_static_dir(
         return current_public;
     }
 
+    // Portable/standalone binary: resources sit next to the executable
+    // (release zip layout: ompcot + public/ + extensions/).
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(Path::to_path_buf));
+    let exe_public = exe_dir.as_ref().map(|dir| dir.join("public"));
+
+    if let Some(dir) = exe_public.as_ref().cloned().and_then(canonical_if_exists) {
+        return dir;
+    }
+
     if let Some(dir) = bundled_public.and_then(canonical_if_exists) {
         return dir;
     }
 
-    resource_dir
+    if let Some(dir) = exe_public.and_then(canonical_if_exists) {
+        return dir;
+    }
+
+    exe_dir
         .map(|dir| dir.join("public"))
+        .or(resource_dir.map(|dir| dir.join("public")))
         .unwrap_or_else(|| PathBuf::from("public"))
 }
 
